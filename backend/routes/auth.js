@@ -1,30 +1,31 @@
-const express = require('express');
-const passport = require('passport');
-const jwt = require('jsonwebtoken');
-const router = express.Router();
-const keys = require('../config/keys');
+const express = require('express'); // Import Express to create routes
+const passport = require('passport'); // Import Passport for authentication
+const jwt = require('jsonwebtoken'); // Import JWT for token generation
+const router = express.Router(); // Create a new Express router
+const keys = require('../config/keys'); // Import keys (environment variables) for JWT
 
 // @route   GET /auth/google
-// @desc    Authenticate user with Google
+// @desc    Redirects the user to Google for authentication
 router.get('/google', passport.authenticate('google', { scope: ['profile'] }));
 
 // @route   GET /auth/google/callback
-// @desc    Google auth callback
+// @desc    Callback route that Google redirects to after user authentication
 router.get(
   '/google/callback',
-  passport.authenticate('google', { session: false }),
+  passport.authenticate('google', { session: false }), // Authenticate without creating a session
   (req, res) => {
-    const payload = { id: req.user.id, name: req.user.displayName };
+    // Create a JWT token for the authenticated user
+    const payload = { id: req.user.id, name: req.user.displayName }; // Payload with user info
     jwt.sign(
       payload,
-      keys.jwtSecret,
-      { expiresIn: 3600 },
+      keys.jwtSecret, // Sign the JWT with the secret key
+      { expiresIn: 3600 }, // Set token expiration time to 1 hour
       (err, token) => {
-        if (err) throw err;
-        res.redirect(`http://localhost:3000/login?token=${token}`);
+        if (err) throw err; // Handle any errors during token generation
+        res.redirect(`http://localhost:3000/login?token=${token}`); // Redirect to the frontend with the token
       }
     );
   }
 );
 
-module.exports = router;
+module.exports = router; // Export the router for use in server.js
