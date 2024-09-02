@@ -13,10 +13,10 @@ const app = express();
 app.use(express.json());
 
 // Passport Configuration: Load Passport strategies
-require('./config/passport')(passport);
+require('./config/passport')
 
 // MongoDB Connection using Mongoose
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('MongoDB Connected')) // Success message if connected
   .catch((err) => console.log(err)); // Log any errors
 

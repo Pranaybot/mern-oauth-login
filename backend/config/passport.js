@@ -1,53 +1,49 @@
-const GoogleStrategy = require('passport-google-oauth20').Strategy; // Google OAuth 2.0 strategy for Passport
-const mongoose = require('mongoose'); // Mongoose to interact with MongoDB
-const User = mongoose.model('users'); // User model to store/retrieve users from MongoDB
-const keys = require('./keys'); // Import keys from the config file
+// backend/config/passport.js
+const passport = require('passport'); // Import passport
+const GoogleStrategy = require('passport-google-oauth20').Strategy; // Import Google OAuth strategy
+const mongoose = require('mongoose'); // Import mongoose
+const User = require('../models/User'); // Import the User model
 
-// Export a function to configure Passport.js
-module.exports = (passport) => {
-  // Define the Google OAuth strategy
-  passport.use(
-    new GoogleStrategy(
-      {
-        clientID: keys.googleClientID, // Client ID from Google Developer Console
-        clientSecret: keys.googleClientSecret, // Client Secret from Google Developer Console
-        callbackURL: '/auth/google/callback', // Callback URL after Google authenticates the user
-      },
-      async (accessToken, refreshToken, profile, done) => {
-        // Extract user profile information returned by Google
-        const newUser = {
-          googleId: profile.id, // Google user ID
-          displayName: profile.displayName, // User's display name
-          firstName: profile.name.givenName, // User's first name
-          lastName: profile.name.familyName, // User's last name
-          image: profile.photos[0].value, // User's profile image URL
-        };
+// Configure Google OAuth strategy
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID, // Google client ID from environment variables
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET, // Google client secret from environment variables
+      callbackURL: '/auth/google/callback', // Callback URL for Google OAuth
+    },
+    async (accessToken, refreshToken, profile, done) => {
+      try {
+        // Check if the user already exists in the database
+        let user = await User.findOne({ googleId: profile.id });
 
-        try {
-          // Check if the user already exists in the database
-          let user = await User.findOne({ googleId: profile.id });
-
-          if (user) {
-            done(null, user); // User found, proceed with authentication
-          } else {
-            // If user doesn't exist, create a new user in the database
-            user = await new User(newUser).save();
-            done(null, user); // New user created, proceed with authentication
-          }
-        } catch (err) {
-          console.error(err); // Log any errors
+        if (user) {
+          done(null, user); // If user exists, return the user
+        } else {
+          // If user doesn't exist, create a new user
+          user = await User.create({
+            googleId: profile.id,
+            displayName: profile.displayName,
+            firstName: profile.name.givenName,
+            lastName: profile.name.familyName,
+            image: profile.photos[0].value,
+          });
+          done(null, user); // Return the newly created user
         }
+      } catch (err) {
+        console.error(err);
+        done(err, null); // Handle any errors
       }
-    )
-  );
+    }
+  )
+);
 
-  // Serialize user information into the session
-  passport.serializeUser((user, done) => {
-    done(null, user.id);
-  });
+// Serialize the user into the session
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
 
-  // Deserialize user information from the session
-  passport.deserializeUser((id, done) => {
-    User.findById(id, (err, user) => done(err, user)); // Retrieve user by ID from the database
-  });
-};
+// Deserialize the user from the session
+passport.deserializeUser((id, done) => {
+  User.findById(id, (err, user) => done(err, user));
+});
